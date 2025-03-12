@@ -11,7 +11,8 @@ The instructions are based on the blog post: [Kubernetes External DNS for Azure 
   - [Step 1: Create an Azure DNS Zone](#step-1-create-an-azure-dns-zone)
   - [Step 2: Configure Azure AD App Registration for External DNS](#step-2-configure-azure-ad-app-registration-for-external-dns)
   - [Step 3: Deploy External DNS on AKS](#step-3-deploy-external-dns-on-aks)
-  - [Step 4: Test with a Sample Application](#step-4-test-with-a-sample-application)
+  - [Step 4: Install nginx ingress controller](#step-4-install-nginx-ingress-controller)
+  - [Step 5: Test with a Sample Application](#step-4-test-with-a-sample-application)
 - [Using External DNS with Kubernetes Services](#using-external-dns-with-kubernetes-services)
 - [Usage](#usage)
 - [Troubleshooting](#troubleshooting)
@@ -137,7 +138,7 @@ Now, deploy External DNS on your AKS cluster and configure it to use Azure DNS.
    kubectl apply -f external-dns.yaml
    ```
 
-Sample Output:
+**Sample Output:**
 
 ```bash
 kubectl get pods,sa -n external-dns
@@ -160,7 +161,7 @@ helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx `
      --namespace ingress-nginx `
      --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz
 ```
-Sample Output:
+**Sample Output:**
 
 ```bash
 kubectl get pods,svc -n ingress-nginx

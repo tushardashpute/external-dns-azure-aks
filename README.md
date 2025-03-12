@@ -1,7 +1,3 @@
-Below is the updated GitHub README with a new section titled "Using External DNS with Kubernetes Services." This section explains how to configure External DNS to work with Kubernetes `Service` resources (e.g., LoadBalancer services) to manage DNS records in Azure DNS. The rest of the README remains unchanged but is included for completeness.
-
----
-
 # Azure External DNS on AKS
 
 This repository provides a guide and resources to set up **External DNS** on Azure Kubernetes Service (AKS) to manage DNS records in **Azure DNS** automatically. External DNS syncs Kubernetes `Ingress` and `Service` resources with Azure DNS, ensuring that your DNS records are always up-to-date with your Kubernetes workloads.
@@ -19,8 +15,6 @@ The instructions are based on the blog post: [Kubernetes External DNS for Azure 
 - [Using External DNS with Kubernetes Services](#using-external-dns-with-kubernetes-services)
 - [Usage](#usage)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## Overview
 
@@ -35,11 +29,15 @@ Before you begin, ensure you have the following:
 3. **Azure CLI**: Installed and configured with your Azure credentials.
 4. **kubectl**: Installed and configured to communicate with your AKS cluster.
 5. **Helm**: Installed for deploying External DNS (optional, if using Helm charts).
-6. **Domain Name**: A domain name managed in Azure DNS (e.g., `example.com`).
+6. **Domain Name**: A domain name managed in Azure DNS (e.g., `example.com`, in my case, astute001.com).
 
 ## Setup Instructions
 
 ### Step 1: Create an Azure DNS Zone
+
+You can create a new Azure DNS Zone with or without delegated domain name. Without delegated domain name means it will not be able to publicly resolve the domain name. But you will still see the created DNS records.
+
+In this lab, I use a delegated domain name: astute001.com. Replace it with your own.
 
 1. Log in to the Azure Portal or use the Azure CLI.
 2. Create a DNS zone in Azure DNS for your domain (e.g., `example.com`):
@@ -139,7 +137,44 @@ Now, deploy External DNS on your AKS cluster and configure it to use Azure DNS.
    kubectl apply -f external-dns.yaml
    ```
 
-### Step 4: Test with a Sample Application
+Sample Output:
+
+```bash
+kubectl get pods,sa -n external-dns
+NAME                                READY   STATUS    RESTARTS   AGE
+pod/external-dns-767fd784fb-tkrj2   1/1     Running   0          132m
+
+NAME                          SECRETS   AGE
+serviceaccount/default        0         134m
+serviceaccount/external-dns   0         132m
+```
+### Step 4: Install nginx ingress controller
+
+```bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+helm repo update
+
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx `
+     --create-namespace `
+     --namespace ingress-nginx `
+     --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz
+```
+Sample Output:
+
+```bash
+kubectl get pods,svc -n ingress-nginx
+NAME                                            READY   STATUS      RESTARTS   AGE
+pod/ingress-nginx-admission-create-vt57z        0/1     Completed   0          87m
+pod/ingress-nginx-admission-patch-dfz97         0/1     Completed   1          87m
+pod/ingress-nginx-controller-797dfb8dc6-5l8br   1/1     Running     0          87m
+
+NAME                                         TYPE           CLUSTER-IP    EXTERNAL-IP    PORT(S)                      AGE
+service/ingress-nginx-controller             LoadBalancer   10.0.247.89   4.157.63.139   80:30328/TCP,443:30452/TCP   87m
+service/ingress-nginx-controller-admission   ClusterIP      10.0.176.35   <none>         443/TCP                      87m
+```
+
+### Step 5: Test with a Sample Application
 
 1. Deploy a sample application with an `Ingress` resource:
    ```yaml
@@ -173,7 +208,26 @@ Now, deploy External DNS on your AKS cluster and configure it to use Azure DNS.
    az dns record-set a list --resource-group <resource-group-name> --zone-name example.com
    ```
 
+Sample Output:
+
+```bash
+kubectl get pods,svc,ingress
+NAME                         READY   STATUS    RESTARTS   AGE
+pod/app02-cfd466954-t7fdl    1/1     Running   0          89m
+
+NAME                 TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)        AGE
+service/app02-svc    ClusterIP      10.0.149.163   <none>           80/TCP         89m
+
+NAME                                      CLASS   HOSTS                 ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/app02-ingress   nginx   app02.astute001.com   4.157.63.139   80      89m
+```
+
 4. Access your application using the domain name (e.g., `myapp.example.com`).
+
+In my case, I have created it like: http://app02.astute001.com/
+
+![image](https://github.com/user-attachments/assets/9b068c0c-5fae-49b0-8cf7-b9866fa7d357)
+
 
 ## Using External DNS with Kubernetes Services
 
@@ -242,6 +296,20 @@ External DNS can automatically create DNS records for `Service` resources if the
    ```
    The `EXTERNAL-IP` field will show the public IP assigned by Azure.
 
+
+Sample Output:
+
+```bash
+kubectl get pods,svc
+NAME                         READY   STATUS    RESTARTS   AGE
+pod/app01-6674ffccc7-njdms   1/1     Running   0          124m
+
+NAME                 TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)        AGE
+service/app01-svc    LoadBalancer   10.0.79.122    134.33.140.129   80:32089/TCP   124m
+
+```
+
+
 5. **Verify the DNS Record in Azure DNS**:
    External DNS will create an `A` record in Azure DNS for `myservice.example.com` pointing to the external IP of the `Service`. Check the DNS record:
    ```bash
@@ -250,6 +318,11 @@ External DNS can automatically create DNS records for `Service` resources if the
 
 6. **Access the Service**:
    Once the DNS record propagates, you can access the service using the domain name (e.g., `myservice.example.com`).
+
+In my case, I have created it like: http://app01.astute001.com/
+
+![image](https://github.com/user-attachments/assets/1b218108-53cc-4fff-9643-0a87201cd37b)
+
 
 ### Notes
 - Ensure that the `domainFilters` in your External DNS configuration include the domain of the service (e.g., `example.com`).
@@ -270,19 +343,6 @@ Once External DNS is running, it will automatically monitor your Kubernetes `Ing
 - **Domain Filters**: Verify that the `domainFilters` include your domain name.
 - **Azure DNS Propagation**: DNS changes may take a few minutes to propagate.
 
-## Contributing
+Let us check the Azure DNS zone configuration. Note the A records was added with public IP for service and ingress controller.
 
-Contributions are welcome! Feel free to submit a pull request or open an issue for bugs, feature requests, or improvements.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-### Changes Made
-- Added a new section titled "Using External DNS with Kubernetes Services" that explains how to configure External DNS to manage DNS records for Kubernetes `Service` resources of type `LoadBalancer`.
-- Included a step-by-step example with YAML manifests for a `Service` and `Deployment`, along with instructions to verify and access the service.
-- Added notes about annotations and behavior of External DNS with services.
-
-Let me know if you'd like further refinements or additional details!
+![image](https://github.com/user-attachments/assets/716b34ca-41a3-4665-8f20-b8580727b407)

@@ -187,7 +187,7 @@ service/ingress-nginx-controller-admission   ClusterIP      10.0.176.35   <none>
        kubernetes.io/ingress.class: nginx
    spec:
      rules:
-     - host: myapp.example.com
+     - host: app02.astute001.com
        http:
          paths:
          - path: /
@@ -248,7 +248,7 @@ External DNS can automatically create DNS records for `Service` resources if the
    metadata:
      name: myapp-service
      annotations:
-       external-dns.alpha.kubernetes.io/hostname: myservice.example.com
+       external-dns.alpha.kubernetes.io/hostname: app01.astute001.com
    spec:
      type: LoadBalancer
      ports:
